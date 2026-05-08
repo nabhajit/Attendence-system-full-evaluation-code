@@ -63,7 +63,7 @@ def _send_reset_email(to_email: str, token: str) -> bool:
     import json
 
     resend_api_key = os.getenv("RESEND_API_KEY") or os.getenv("RESEND_API")
-    from_email = os.getenv("SMTP_EMAIL", "onboarding@resend.dev")
+    from_email = "onboarding@resend.dev"  # Required for Resend trial accounts without custom domains
     frontend_url = os.getenv("FRONTEND_URL", "http://localhost:5173")
 
     if not resend_api_key:
