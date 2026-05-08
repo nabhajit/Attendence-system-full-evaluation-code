@@ -223,13 +223,13 @@ def extract_embedding(face_bgr, facenet, device):
 
 
 def recognize(face_bgr, db, facenet, device, threshold=SIMILARITY_THRESHOLD):
-    """Recognise a face. Returns (name, confidence) or (None, score)."""
-    if db["faiss_index"] is None:
-        return None, 0.0
+    """Recognise a face. Returns (name, roll), score or (None, None), score."""
+    if db.get("faiss_index") is None:
+        return (None, None), 0.0
 
     emb = extract_embedding(face_bgr, facenet, device)
     if emb is None:
-        return None, 0.0
+        return (None, None), 0.0
 
     emb_r = db["pca_model"].transform(emb.reshape(1, -1)).astype("float32")
     emb_r = np.ascontiguousarray(emb_r)

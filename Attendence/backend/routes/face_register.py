@@ -338,8 +338,10 @@ async def recognize_live_frame(
         return {"match": False, "message": "No face detected in frame."}
     
     # Recognition logic
-    # Note: recognize() expects a tensor if we pass face_tensor
-    (name, roll), score = recognize(face_tensor, db, facenet, device)
+    # Convert PIL image to BGR numpy array for the recognize function
+    import cv2
+    face_bgr = cv2.cvtColor(np.array(pil_img), cv2.COLOR_RGB2BGR)
+    (name, roll), score = recognize(face_bgr, db, facenet, device)
     
     if roll and roll != "Unknown":
         # Check timetable and enrollments
