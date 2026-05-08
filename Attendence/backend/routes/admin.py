@@ -169,18 +169,21 @@ def update_student(roll: str, body: dict, user: dict = admin_dep):
     # Sync with enrollments_collection if course and class are provided/updated
     # It's safest to pull from all and push to the new one if we only have one enrollment
     # per student in the simplified model.
-    if "course" in update_data and "class" in update_data:
-        course_code = update_data["course"]
-        section = update_data["class"]
-        from database import enrollments_collection
+    # Sync with enrollments_collection if course or class is updated
+    if "course" in update_data or "class" in update_data:
+        # Get latest full data to ensure we have both course and class
+        student = students_collection.find_one({"roll": roll})
+        course_code = update_data.get("course", student.get("course"))
+        section = update_data.get("class", student.get("class"))
         
-        # Remove from all previous enrollments
+        # Remove from all previous enrollments for this roll
+        from database import enrollments_collection
         enrollments_collection.update_many(
             {"roll_numbers": roll},
             {"$pull": {"roll_numbers": roll}}
         )
         
-        # Add to new enrollment
+        # Add to the new enrollment batch
         if course_code and section:
             enrollments_collection.update_one(
                 {"course_code": course_code, "section": section},
