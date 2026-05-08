@@ -4,11 +4,11 @@ import sys
 import pathlib
 
 # Load the environment
-_attendence_dir = pathlib.Path(__file__).parent.parent
-sys.path.insert(0, str(_attendence_dir))
+_attendance_dir = pathlib.Path(__file__).parent.parent
+sys.path.insert(0, str(_attendance_dir))
 
 from dotenv import load_dotenv
-load_dotenv(_attendence_dir / ".env", override=True)
+load_dotenv(_attendance_dir / ".env", override=True)
 
 # Connect to DB
 client = MongoClient(os.getenv("MONGO_URI"))

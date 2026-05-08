@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from Attendence.backend.database import init_db
+from Attendance.backend.database import init_db
 
 # Import routers
 from .routes import auth, student, admin, superadmin, faculty

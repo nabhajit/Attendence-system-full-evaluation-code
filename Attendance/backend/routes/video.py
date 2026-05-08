@@ -16,9 +16,9 @@ from ..auth_utils import require_role
 from ..database import attendance_collection, students_collection
 from .. import env_loader
 
-_attendence_dir = pathlib.Path(__file__).parent.parent.parent
-_model_dir = _attendence_dir / "model"
-UPLOAD_DIR = _attendence_dir / "backend" / "uploads"
+_attendance_dir = pathlib.Path(__file__).parent.parent.parent
+_model_dir = _attendance_dir / "model"
+UPLOAD_DIR = _attendance_dir / "backend" / "uploads"
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
 router = APIRouter(prefix="/admin/video", tags=["Video Processing"])

@@ -17,9 +17,9 @@ from .. import env_loader
 from datetime import datetime
 import calendar
 from ..database import timetables_collection, enrollments_collection
-# face_register.py is 3 levels deep: Attendence/backend/routes/face_register.py
-_attendence_dir = pathlib.Path(__file__).parent.parent.parent
-_model_dir = _attendence_dir / "model"
+# face_register.py is 3 levels deep: Attendance/backend/routes/face_register.py
+_attendance_dir = pathlib.Path(__file__).parent.parent.parent
+_model_dir = _attendance_dir / "model"
 
 # Configure Cloudinary from the now-loaded environment
 _cloud_url = os.getenv("CLOUDINARY_URL")
