@@ -27,8 +27,8 @@ def register(user: UserRegister):
     user_dict["password_hash"] = get_password_hash(user_dict.pop("password"))
     user_dict["is_suspended"] = False
     
-    # Security patch: force role to student to prevent privilege escalation via public UI.
-    user_dict["role"] = "student"
+    # Use the role provided in the registration request
+    # user_dict["role"] is already set from user.model_dump()
     
     users_collection.insert_one(user_dict)
     return {"message": "User registered successfully"}
