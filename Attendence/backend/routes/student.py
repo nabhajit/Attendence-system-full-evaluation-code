@@ -50,14 +50,18 @@ def get_my_courses(user: dict = Depends(get_student_user)):
 
 @router.get("/timetables")
 def get_my_timetables(user: dict = Depends(get_student_user)):
-    roll = user["roll_number"]
-    # We find all timetables that match ANY of the student's enrolled course_code + section
-    enrollments = list(enrollments_collection.find({"roll_numbers": roll}))
-    if not enrollments:
+    """Fetch timetables directly based on student's profile course and class."""
+    course = user.get("course")
+    section = user.get("student_class")
+    
+    if not course or not section:
         return []
         
-    query_conditions = [{"course_code": e.get("course_code"), "section": e.get("section")} for e in enrollments]
-    timetables = list(timetables_collection.find({"$or": query_conditions}, {"_id": 0}))
+    # Find all timetables for this student's specific batch
+    timetables = list(timetables_collection.find(
+        {"course_code": course, "section": section}, 
+        {"_id": 0}
+    ))
     return timetables
 
 @router.get("/remarks")
