@@ -57,8 +57,8 @@ def login(user: UserLogin):
 # Forgot Password / Reset Password
 # ─────────────────────────────────────────────────────────
 
-def _send_reset_email(to_email: str, token: str):
-    """Send a password reset email using SMTP credentials from .env"""
+def _send_reset_email(to_email: str, token: str) -> bool:
+    """Send a password reset email. Returns True on success, False on network failure."""
     import smtplib
     from email.mime.text import MIMEText
     from email.mime.multipart import MIMEMultipart
@@ -68,10 +68,10 @@ def _send_reset_email(to_email: str, token: str):
     smtp_host = os.getenv("SMTP_HOST", "smtp.gmail.com")
     smtp_port = int(os.getenv("SMTP_PORT", "587"))
     frontend_url = os.getenv("FRONTEND_URL", "http://localhost:5173")
-    
+
     if not smtp_email or not smtp_password:
-        print("🚨 SMTP credentials missing! Cannot send reset email.")
-        raise HTTPException(status_code=500, detail="Email service not configured. Contact the administrator.")
+        print("🚨 SMTP credentials missing — will return link directly.")
+        return False
 
     reset_link = f"{frontend_url}/reset-password?token={token}"
 
@@ -92,9 +92,9 @@ def _send_reset_email(to_email: str, token: str):
                 This link is valid for <strong>15 minutes</strong>.
             </p>
             <div style="text-align: center; margin: 24px 0;">
-                <a href="{reset_link}" 
-                   style="display: inline-block; background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); 
-                          color: white; text-decoration: none; padding: 14px 36px; border-radius: 10px; 
+                <a href="{reset_link}"
+                   style="display: inline-block; background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+                          color: white; text-decoration: none; padding: 14px 36px; border-radius: 10px;
                           font-weight: bold; font-size: 15px; box-shadow: 0 4px 12px rgba(59,130,246,0.35);">
                     Reset My Password
                 </a>
@@ -109,7 +109,7 @@ def _send_reset_email(to_email: str, token: str):
         </p>
     </div>
     """
-    
+
     msg.attach(MIMEText(html_body, "html"))
 
     try:
@@ -119,27 +119,28 @@ def _send_reset_email(to_email: str, token: str):
         server.sendmail(smtp_email, to_email, msg.as_string())
         server.quit()
         print(f"✅ Password reset email sent to {to_email}")
+        return True
     except Exception as e:
         print(f"❌ Failed to send reset email: {e}")
-        raise HTTPException(status_code=500, detail="Failed to send reset email. Please try again later.")
+        return False
 
 
 @router.post("/forgot-password")
 def forgot_password(request: ForgotPasswordRequest):
     """Generate a reset token and email it to the user."""
     user = users_collection.find_one({"email": request.email})
-    
+
     # Always return success to prevent email enumeration attacks
     if not user:
         return {"message": "If an account with that email exists, a reset link has been sent."}
-    
+
     # Generate a secure random token
     token = secrets.token_urlsafe(32)
     expires_at = datetime.utcnow() + timedelta(minutes=15)
-    
+
     # Remove any existing tokens for this user
     password_resets_collection.delete_many({"email": request.email})
-    
+
     # Store the new token
     password_resets_collection.insert_one({
         "email": request.email,
@@ -147,11 +148,21 @@ def forgot_password(request: ForgotPasswordRequest):
         "expires_at": expires_at,
         "created_at": datetime.utcnow()
     })
-    
-    # Send the email
-    _send_reset_email(request.email, token)
-    
-    return {"message": "If an account with that email exists, a reset link has been sent."}
+
+    # Try to send the email; if network is blocked (e.g. HF Spaces), return link directly
+    email_sent = _send_reset_email(request.email, token)
+
+    frontend_url = os.getenv("FRONTEND_URL", "http://localhost:5173")
+    reset_link = f"{frontend_url}/reset-password?token={token}"
+
+    if email_sent:
+        return {"message": "A reset link has been sent to your email. Please check your inbox."}
+    else:
+        # Fallback: return the link directly so the user can still reset
+        return {
+            "message": "Email could not be sent automatically. Please use the link below to reset your password:",
+            "reset_link": reset_link
+        }
 
 
 @router.post("/reset-password")

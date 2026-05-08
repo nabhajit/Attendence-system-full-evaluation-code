@@ -66,14 +66,20 @@ export const Auth = () => {
     }
   };
 
+  const [resetLink, setResetLink] = useState('');
+
   const handleForgotPassword = async (e) => {
     e.preventDefault();
     setError('');
     setSuccess('');
+    setResetLink('');
     setLoading(true);
     try {
       const res = await api.post('/auth/forgot-password', { email: forgotEmail });
       setSuccess(res.data.message);
+      if (res.data.reset_link) {
+        setResetLink(res.data.reset_link);
+      }
       setForgotEmail('');
     } catch (err) {
       setError(err.response?.data?.detail || 'Something went wrong. Please try again.');
@@ -136,6 +142,13 @@ export const Auth = () => {
 
               {error && <div className="alert alert-danger small p-2 border-0 bg-danger text-white bg-opacity-75">{error}</div>}
               {success && <div className="alert alert-success small p-2 border-0 bg-success text-white bg-opacity-75">{success}</div>}
+              {resetLink && (
+                <div className="alert border-0 p-3 mb-2" style={{background: '#eff6ff', borderRadius: '10px'}}>
+                  <p className="small fw-bold mb-2" style={{color: '#1d4ed8'}}>🔗 Use this link to reset your password:</p>
+                  <a href={resetLink} className="btn btn-primary btn-sm w-100 fw-bold">Open Password Reset Page</a>
+                </div>
+              )}
+
 
               <form onSubmit={handleForgotPassword}>
                 <div className="mb-4">
