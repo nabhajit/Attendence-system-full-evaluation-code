@@ -78,42 +78,41 @@ export const VideoUploadModal = ({ show, onClose, onSuccess }) => {
 export const LiveScannerModal = ({ show, onClose }) => {
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
+  const streamRef = useRef(null);
   const [isScanning, setIsScanning] = useState(false);
   const [recognized, setRecognized] = useState([]);
   const [status, setStatus] = useState('Ready to scan');
 
-  useEffect(() => {
-    let stream = null;
-    if (show) {
-      startCamera();
-    } else {
-      stopCamera();
+  const stopCamera = () => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(t => t.stop());
+      streamRef.current = null;
     }
-    return () => stopCamera();
-  }, [show]);
+    if (videoRef.current) videoRef.current.srcObject = null;
+    setIsScanning(false);
+  };
 
   const startCamera = async () => {
     try {
-      const s = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
+      stopCamera(); // Ensure clean start
+      const s = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: 1280, height: 720 } });
+      streamRef.current = s;
       if (videoRef.current) {
         videoRef.current.srcObject = s;
-        stream = s;
       }
       setIsScanning(true);
       setStatus('Searching for faces...');
     } catch (err) {
       console.error("Camera access denied", err);
-      setStatus('❌ Camera access denied');
+      setStatus('❌ Camera access denied. Please check permissions.');
     }
   };
 
-  const stopCamera = () => {
-    if (videoRef.current?.srcObject) {
-      const tracks = videoRef.current.srcObject.getTracks();
-      tracks.forEach(t => t.stop());
-    }
-    setIsScanning(false);
-  };
+  useEffect(() => {
+    if (show) startCamera();
+    else stopCamera();
+    return () => stopCamera();
+  }, [show]);
 
   const captureFrame = async () => {
     if (!videoRef.current || !canvasRef.current || !isScanning) return;
@@ -127,7 +126,6 @@ export const LiveScannerModal = ({ show, onClose }) => {
 
     canvas.toBlob(async (blob) => {
       if (!blob) return;
-      
       const formData = new FormData();
       formData.append('file', blob, 'frame.jpg');
 
@@ -140,16 +138,14 @@ export const LiveScannerModal = ({ show, onClose }) => {
             time: new Date().toLocaleTimeString(),
             logged: res.data.attendance_logged
           };
-          
-          // Check if already in list
           setRecognized(prev => {
             if (prev.find(p => p.roll === newMatch.roll)) return prev;
             return [newMatch, ...prev].slice(0, 5);
           });
-          
           setStatus(`✅ Recognized: ${newMatch.name}`);
         } else {
-          setStatus('Searching...');
+          // Show the specific reason from the backend (e.g. "No active class")
+          setStatus(res.data.message || 'Searching...');
         }
       } catch (err) {
         console.error("Scan error", err);
@@ -157,7 +153,6 @@ export const LiveScannerModal = ({ show, onClose }) => {
     }, 'image/jpeg', 0.8);
   };
 
-  // Run scanner every 2.5 seconds
   useEffect(() => {
     let interval = null;
     if (isScanning) {
