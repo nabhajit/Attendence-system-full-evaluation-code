@@ -355,6 +355,10 @@ async def recognize_live_frame(
                 active_tt = tt
                 break
                 
+        # Default to no class if none found
+        course_code = "No Active Class"
+        section = "N/A"
+        
         if active_tt:
             course_code = active_tt.get("course_code")
             section = active_tt.get("section")
@@ -363,32 +367,34 @@ async def recognize_live_frame(
             if not enrollment or roll not in enrollment.get("roll_numbers", []):
                 return {
                     "match": False,
-                    "message": f"{name} is not enrolled in the active class ({course_code} - Section {section})."
+                    "message": f"{name} is not enrolled in {course_code}."
                 }
-        else:
-            # Reject scan if no active class is scheduled
+            
+            # 4. Mark attendance ONLY if class is active
+            spec = importlib.util.spec_from_file_location("mongo_manager", _model_dir / "mongo_manager.py")
+            mongo_mod = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(mongo_mod)
+            db_manager = mongo_mod.MongoDatabaseManager()
+            success = db_manager.mark_attendance(roll, name, confidence=score, course_code=course_code, section=section)
+            
             return {
-                "match": False,
-                "message": f"No active class scheduled at this time. Scan rejected."
+                "match": True,
+                "name": name,
+                "roll": roll,
+                "confidence": score,
+                "attendance_logged": success,
+                "message": f"Recognized: {name} for {course_code}" if success else f"{name} (Already marked)"
             }
-
-        # 4. Mark attendance in MongoDB
-        spec = importlib.util.spec_from_file_location("mongo_manager", _model_dir / "mongo_manager.py")
-        mongo_mod = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(mongo_mod)
-        db_manager = mongo_mod.MongoDatabaseManager()
-        
-        # Modify mark_attendance if needed, or just keep it as is.
-        success = db_manager.mark_attendance(roll, name, confidence=score, course_code=course_code, section=section)
-        
-        return {
-            "match": True,
-            "name": name,
-            "roll": roll,
-            "confidence": score,
-            "attendance_logged": success,
-            "message": f"Recognized: {name} for {course_code}" if success else f"{name} (Attendance already marked for {course_code})"
-        }
+        else:
+            # Recognized but no class active
+            return {
+                "match": True,
+                "name": name,
+                "roll": roll,
+                "confidence": score,
+                "attendance_logged": False,
+                "message": f"Recognized: {name} (No active class)"
+            }
     
     return {
         "match": False,
