@@ -71,7 +71,7 @@ export const FaceRegistrationModal = ({ show, onClose, onSuccess }) => {
 
   useEffect(() => {
     if (isCapturing && capturedImages.length < TARGET_IMAGES) {
-      const timer = setTimeout(captureFrame, 1500);
+      const timer = setTimeout(captureFrame, 1000);
       return () => clearTimeout(timer);
     }
     if (isCapturing && capturedImages.length >= TARGET_IMAGES) setIsCapturing(false);
