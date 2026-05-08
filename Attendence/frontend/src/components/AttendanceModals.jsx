@@ -81,7 +81,8 @@ export const LiveScannerModal = ({ show, onClose }) => {
   const streamRef = useRef(null);
   const [isScanning, setIsScanning] = useState(false);
   const [recognized, setRecognized] = useState([]);
-  const [status, setStatus] = useState('Ready to scan');
+  const [status, setStatus] = useState('Initializing...');
+  const [cameraError, setCameraError] = useState(null);
 
   const stopCamera = () => {
     if (streamRef.current) {
@@ -90,21 +91,25 @@ export const LiveScannerModal = ({ show, onClose }) => {
     }
     if (videoRef.current) videoRef.current.srcObject = null;
     setIsScanning(false);
+    setCameraError(null);
   };
 
   const startCamera = async () => {
+    setCameraError(null);
+    setStatus('Opening camera...');
     try {
-      stopCamera(); // Ensure clean start
       const s = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: 1280, height: 720 } });
       streamRef.current = s;
       if (videoRef.current) {
         videoRef.current.srcObject = s;
+        await videoRef.current.play();
       }
       setIsScanning(true);
-      setStatus('Searching for faces...');
+      setStatus('🔍 Searching for faces...');
     } catch (err) {
-      console.error("Camera access denied", err);
-      setStatus('❌ Camera access denied. Please check permissions.');
+      console.error("Camera access error", err);
+      setCameraError('Camera access denied. Please check permissions.');
+      setStatus('❌ Camera Error');
     }
   };
 
@@ -116,7 +121,6 @@ export const LiveScannerModal = ({ show, onClose }) => {
 
   const captureFrame = async () => {
     if (!videoRef.current || !canvasRef.current || !isScanning) return;
-
     const canvas = canvasRef.current;
     const video = videoRef.current;
     canvas.width = video.videoWidth;
@@ -128,7 +132,6 @@ export const LiveScannerModal = ({ show, onClose }) => {
       if (!blob) return;
       const formData = new FormData();
       formData.append('file', blob, 'frame.jpg');
-
       try {
         const res = await api.post('/admin/face/recognize', formData);
         if (res.data.match) {
@@ -144,20 +147,17 @@ export const LiveScannerModal = ({ show, onClose }) => {
           });
           setStatus(`✅ Recognized: ${newMatch.name}`);
         } else {
-          // Show the specific reason from the backend (e.g. "No active class")
-          setStatus(res.data.message || 'Searching...');
+          setStatus(res.data.message || '🔍 Searching...');
         }
       } catch (err) {
-        console.error("Scan error", err);
+        setStatus('⚠️ Recognition Server Busy');
       }
-    }, 'image/jpeg', 0.8);
+    }, 'image/jpeg', 0.7);
   };
 
   useEffect(() => {
     let interval = null;
-    if (isScanning) {
-      interval = setInterval(captureFrame, 2500);
-    }
+    if (isScanning) interval = setInterval(captureFrame, 2800);
     return () => clearInterval(interval);
   }, [isScanning]);
 
