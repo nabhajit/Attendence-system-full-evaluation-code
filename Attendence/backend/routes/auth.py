@@ -113,7 +113,7 @@ def _send_reset_email(to_email: str, token: str) -> bool:
     msg.attach(MIMEText(html_body, "html"))
 
     try:
-        server = smtplib.SMTP(smtp_host, smtp_port)
+        server = smtplib.SMTP(smtp_host, smtp_port, timeout=5)
         server.starttls()
         server.login(smtp_email, smtp_password)
         server.sendmail(smtp_email, to_email, msg.as_string())
