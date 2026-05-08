@@ -2,7 +2,7 @@ import { useState, useRef, useCallback, useEffect } from 'react';
 import api from '../services/api';
 import { FiCamera, FiUser, FiCheckCircle, FiTrash2, FiUpload, FiBook } from 'react-icons/fi';
 
-const TARGET_IMAGES = 20;
+const TARGET_IMAGES = 30;
 
 export const FaceRegistrationModal = ({ show, onClose, onSuccess }) => {
   const videoRef = useRef(null);
