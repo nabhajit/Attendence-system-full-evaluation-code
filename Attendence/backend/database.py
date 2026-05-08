@@ -27,7 +27,7 @@ def init_db():
     
     # Check if a superadmin exists. If not, create a fallback one.
     if users_collection.count_documents({"role": "superadmin"}) == 0:
-        from auth_utils import get_password_hash
+        from .auth_utils import get_password_hash
         print("Initializing default superadmin...")
         users_collection.insert_one({
             "email": "superadmin@admin.com",

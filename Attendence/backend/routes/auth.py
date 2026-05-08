@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, Depends
 from ..models import UserRegister, UserLogin, ForgotPasswordRequest, ResetPasswordRequest
 from ..auth_utils import get_password_hash, verify_password, create_access_token
-from ..database import users_collection
+from ..database import users_collection, password_resets_collection
 import secrets
 import os
 from datetime import datetime, timedelta
