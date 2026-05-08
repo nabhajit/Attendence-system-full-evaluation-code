@@ -173,25 +173,18 @@ def rebuild_database():
 
     embeddings_np = np.array(all_embeddings).astype("float32")
     
-    # Simple PCA — reduce dimensions to 128 if we have enough samples, else use original size
-    n_samples = embeddings_np.shape[0]
-    n_features = embeddings_np.shape[1]
-    n_components = min(n_samples, 128)
-    
-    pca = PCA(n_components=n_components)
-    embeddings_reduced = pca.fit_transform(embeddings_np).astype("float32")
-    
-    # Build FAISS index
-    index = faiss.IndexFlatIP(n_components)
-    faiss.normalize_L2(embeddings_reduced)
-    index.add(embeddings_reduced)
+    # Build FAISS index using raw 512-D embeddings (more accurate for small datasets)
+    dimension = embeddings_np.shape[1]
+    index = faiss.IndexFlatIP(dimension)
+    faiss.normalize_L2(embeddings_np)
+    index.add(embeddings_np)
 
     db = {
         "names": all_names,
         "rolls": all_rolls,
         "embeddings": all_embeddings,
         "faiss_index": index,
-        "pca_model": pca
+        "pca_model": None  # Removed PCA
     }
 
     # Save to disk for future calls in this session
@@ -231,11 +224,11 @@ def recognize(face_bgr, db, facenet, device, threshold=SIMILARITY_THRESHOLD):
     if emb is None:
         return (None, None), 0.0
 
-    emb_r = db["pca_model"].transform(emb.reshape(1, -1)).astype("float32")
-    emb_r = np.ascontiguousarray(emb_r)
-    faiss.normalize_L2(emb_r)
+    emb_q = emb.reshape(1, -1).astype("float32")
+    emb_q = np.ascontiguousarray(emb_q)
+    faiss.normalize_L2(emb_q)
 
-    D, I = db["faiss_index"].search(emb_r, k=1)
+    D, I = db["faiss_index"].search(emb_q, k=1)
     score = float(D[0][0])
     idx   = int(I[0][0])
 
