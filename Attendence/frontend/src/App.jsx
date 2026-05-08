@@ -14,6 +14,7 @@ import { ResetPassword } from './pages/ResetPassword';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import './index.css';
 
+// Forced Update for Camera Logic v2.0
 function App() {
   return (
     <Router>

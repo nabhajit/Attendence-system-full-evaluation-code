@@ -121,20 +121,84 @@ def load_models():
 
 def load_database():
     if not os.path.exists(DATABASE_PATH):
-        print(f"❌ Database not found at {DATABASE_PATH}")
-        print("   Please build the database first (run main.py option 1).")
-        sys.exit(1)
+        print(f"⚠️ Database not found at {DATABASE_PATH}. Attempting to rebuild from MongoDB...")
+        try:
+            return rebuild_database()
+        except Exception as e:
+            print(f"❌ Failed to rebuild database: {e}")
+            sys.exit(1)
 
     with open(DATABASE_PATH, "rb") as f:
         db = pickle.load(f)
 
     if db.get("faiss_index") is None:
-        print("❌ Database is empty. Please build the database first.")
-        sys.exit(1)
+        print("⚠️ Database is empty. Attempting to rebuild...")
+        return rebuild_database()
 
-    # Use 'rolls' if available for uniqueness, fall back to 'names' for older DBs
     count = len(db.get('rolls', db['names']))
     print(f"✅ Database loaded — {count} users.")
+    return db
+
+
+def rebuild_database():
+    """Reconstruct the face database from MongoDB data."""
+    print("🔄 Rebuilding face database from MongoDB...")
+    students = db_manager.get_all_students()
+    
+    if not students:
+        print("⚠️ No students found in MongoDB. Database will be empty.")
+        return {"names": [], "rolls": [], "embeddings": [], "faiss_index": None, "pca_model": None}
+
+    all_embeddings = []
+    all_names = []
+    all_rolls = []
+
+    for s in students:
+        name = s.get("name")
+        roll = s.get("roll")
+        # Check if student already has a pre-computed embedding in MongoDB
+        emb = s.get("embedding")
+        
+        if emb:
+            all_embeddings.append(np.array(emb, dtype="float32"))
+            all_names.append(name)
+            all_rolls.append(roll)
+        else:
+            # Skip for now if no embedding exists (they should have one if registered via FaceRegistrationModal)
+            print(f"  ⏭️ Skipping {name} ({roll}) - No embedding found in MongoDB.")
+
+    if not all_embeddings:
+        print("❌ No valid embeddings found for any student.")
+        return {"names": [], "rolls": [], "embeddings": [], "faiss_index": None, "pca_model": None}
+
+    embeddings_np = np.array(all_embeddings).astype("float32")
+    
+    # Simple PCA — reduce dimensions to 128 if we have enough samples, else use original size
+    n_samples = embeddings_np.shape[0]
+    n_features = embeddings_np.shape[1]
+    n_components = min(n_samples, 128)
+    
+    pca = PCA(n_components=n_components)
+    embeddings_reduced = pca.fit_transform(embeddings_np).astype("float32")
+    
+    # Build FAISS index
+    index = faiss.IndexFlatIP(n_components)
+    faiss.normalize_L2(embeddings_reduced)
+    index.add(embeddings_reduced)
+
+    db = {
+        "names": all_names,
+        "rolls": all_rolls,
+        "embeddings": all_embeddings,
+        "faiss_index": index,
+        "pca_model": pca
+    }
+
+    # Save to disk for future calls in this session
+    with open(DATABASE_PATH, "wb") as f:
+        pickle.dump(db, f)
+
+    print(f"✅ Database successfully rebuilt with {len(all_names)} students.")
     return db
 
 
