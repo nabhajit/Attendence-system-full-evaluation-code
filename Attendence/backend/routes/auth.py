@@ -58,19 +58,16 @@ def login(user: UserLogin):
 # ─────────────────────────────────────────────────────────
 
 def _send_reset_email(to_email: str, token: str) -> bool:
-    """Send a password reset email. Returns True on success, False on network failure."""
-    import smtplib
-    from email.mime.text import MIMEText
-    from email.mime.multipart import MIMEMultipart
+    """Send a password reset email via Resend HTTP API. Returns True on success, False on failure."""
+    import urllib.request
+    import json
 
-    smtp_email = os.getenv("SMTP_EMAIL")
-    smtp_password = os.getenv("SMTP_PASSWORD")
-    smtp_host = os.getenv("SMTP_HOST", "smtp.gmail.com")
-    smtp_port = int(os.getenv("SMTP_PORT", "587"))
+    resend_api_key = os.getenv("RESEND_API_KEY")
+    from_email = os.getenv("SMTP_EMAIL", "onboarding@resend.dev")
     frontend_url = os.getenv("FRONTEND_URL", "http://localhost:5173")
 
-    if not smtp_email or not smtp_password:
-        print("🚨 SMTP credentials missing — will return link directly.")
+    if not resend_api_key:
+        print("🚨 RESEND_API_KEY missing — will return link directly.")
         return False
 
     reset_link = f"{frontend_url}/reset-password?token={token}"
@@ -110,18 +107,29 @@ def _send_reset_email(to_email: str, token: str) -> bool:
     </div>
     """
 
-    msg.attach(MIMEText(html_body, "html"))
+    payload = json.dumps({
+        "from": f"Smart Attendance <{from_email}>",
+        "to": [to_email],
+        "subject": "🔐 Password Reset — Smart Attendance System",
+        "html": html_body
+    }).encode("utf-8")
+
+    req = urllib.request.Request(
+        "https://api.resend.com/emails",
+        data=payload,
+        headers={"Authorization": f"Bearer {resend_api_key}", "Content-Type": "application/json"},
+        method="POST"
+    )
 
     try:
-        server = smtplib.SMTP(smtp_host, smtp_port, timeout=5)
-        server.starttls()
-        server.login(smtp_email, smtp_password)
-        server.sendmail(smtp_email, to_email, msg.as_string())
-        server.quit()
-        print(f"✅ Password reset email sent to {to_email}")
-        return True
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            if resp.status in (200, 201):
+                print(f"✅ Password reset email sent to {to_email} via Resend")
+                return True
+            print(f"❌ Resend API returned: {resp.status}")
+            return False
     except Exception as e:
-        print(f"❌ Failed to send reset email: {e}")
+        print(f"❌ Failed to send email via Resend: {e}")
         return False
 
 
