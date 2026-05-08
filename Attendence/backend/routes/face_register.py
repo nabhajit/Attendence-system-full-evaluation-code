@@ -10,8 +10,8 @@ from fastapi import APIRouter, Depends, UploadFile, File, Form
 from fastapi import HTTPException
 from typing import List
 from dotenv import load_dotenv
-from ..auth_utils import require_role
-from ..database import students_collection
+from ..database import students_collection, users_collection
+from ..auth_utils import require_role, get_password_hash
 import pathlib
 from .. import env_loader
 from datetime import datetime
@@ -156,6 +156,7 @@ async def register_student_face(
     student_class: str = Form("Unknown"),
     contact: str = Form("N/A"),
     course: str = Form(""),
+    email: str = Form(...),
     images: List[UploadFile] = File(...),
     user: dict = Depends(require_role(["admin", "superadmin"])),
     limit: bool = Depends(check_rate_limit)
@@ -190,6 +191,25 @@ async def register_student_face(
     if not success:
         raise HTTPException(status_code=500, detail="Failed to save to database.")
         
+    # Extra: Save email to student document specifically
+    students_collection.update_one({"roll": roll_number}, {"$set": {"email": email}})
+
+    # Create Auth Account for Student with a UNIQUE password
+    default_password = f"Student@{roll_number}"
+    if not users_collection.find_one({"email": email}):
+        user_data = {
+            "name": name,
+            "email": email,
+            "password_hash": get_password_hash(default_password),
+            "roll_number": roll_number,
+            "role": "student",
+            "is_suspended": False,
+            "created_at": datetime.utcnow()
+        }
+        users_collection.insert_one(user_data)
+        # Send Welcome Email
+        _send_welcome_email(email, name, default_password)
+
     if course and student_class:
         from database import enrollments_collection
         enrollments_collection.update_one(
@@ -199,11 +219,57 @@ async def register_student_face(
         )
     
     return {
-        "message": f"Student '{name}' successfully registered!",
+        "message": f"Student '{name}' registered and account created! Credentials sent to {email}.",
         "roll_number": roll_number,
         "images_processed": processed,
         "cloudinary_urls": urls[:3]
     }
+
+def _send_welcome_email(to_email: str, name: str, password: str):
+    """Send welcome email with hardcoded credentials."""
+    import urllib.request
+    import json
+    
+    brevo_api_key = (os.getenv("BREVO_API_KEY") or os.getenv("BREVO_API") or "").strip()
+    smtp_email = os.getenv("SMTP_EMAIL", "roynabhajit@gmail.com")
+    
+    if not brevo_api_key:
+        print("⚠️ No Brevo API key found. Welcome email skipped.")
+        return
+
+    html_body = f"""
+    <div style="font-family: sans-serif; max-width: 500px; margin: 0 auto; border: 1px solid #eee; border-radius: 10px; padding: 20px;">
+        <h2 style="color: #2563eb;">Welcome to Smart Attendance System!</h2>
+        <p>Hello <strong>{name}</strong>,</p>
+        <p>Your student account has been created by the administration. You can now log in to track your attendance and view your timetable.</p>
+        <div style="background: #f8fafc; padding: 15px; border-radius: 8px; margin: 20px 0;">
+            <p style="margin: 0;"><strong>Login Email:</strong> {to_email}</p>
+            <p style="margin: 5px 0 0 0;"><strong>Temporary Password:</strong> {password}</p>
+        </div>
+        <p style="font-size: 13px; color: #64748b;">Note: Please change your password after your first login for security.</p>
+        <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
+        <p style="font-size: 12px; text-align: center; color: #94a3b8;">Smart Attendance Platform</p>
+    </div>
+    """
+
+    payload = json.dumps({
+        "sender": {"name": "Smart Attendance", "email": smtp_email},
+        "to": [{"email": to_email}],
+        "subject": "🎓 Welcome! Your Student Account Credentials",
+        "htmlContent": html_body
+    }).encode("utf-8")
+
+    req = urllib.request.Request(
+        "https://api.brevo.com/v3/smtp/email",
+        data=payload,
+        headers={"api-key": brevo_api_key, "Content-Type": "application/json"},
+        method="POST"
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            print(f"✅ Welcome email sent to {to_email} (Status: {resp.status})")
+    except Exception as e:
+        print(f"❌ Failed to send welcome email: {e}")
 
 
 @router.patch("/update")

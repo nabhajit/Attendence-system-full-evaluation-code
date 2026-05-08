@@ -10,7 +10,7 @@ export const FaceRegistrationModal = ({ show, onClose, onSuccess }) => {
   const streamRef = useRef(null);
 
   const [step, setStep] = useState('form');
-  const [studentInfo, setStudentInfo] = useState({ name: '', roll_number: '', student_class: '', contact: '', course: '' });
+  const [studentInfo, setStudentInfo] = useState({ name: '', roll_number: '', student_class: '', contact: '', course: '', email: '' });
   const [capturedImages, setCapturedImages] = useState([]);
   const [isCapturing, setIsCapturing] = useState(false);
   const [error, setError] = useState('');
@@ -92,6 +92,7 @@ export const FaceRegistrationModal = ({ show, onClose, onSuccess }) => {
       formData.append('student_class', studentInfo.student_class || 'Unknown');
       formData.append('contact', studentInfo.contact || 'N/A');
       formData.append('course', studentInfo.course || '');
+      formData.append('email', studentInfo.email || '');
       capturedImages.forEach((blob, i) => formData.append('images', blob, `face_${i + 1}.jpg`));
 
       const res = await api.post('/admin/face/register', formData, {
@@ -150,16 +151,20 @@ export const FaceRegistrationModal = ({ show, onClose, onSuccess }) => {
                   <label className="form-label text-muted small fw-bold">Class / Section</label>
                   <input className="form-control bg-light border-0" placeholder="e.g. 12-A" value={studentInfo.student_class} onChange={e => setStudentInfo({...studentInfo, student_class: e.target.value})} />
                 </div>
-                <div className="col-md-12">
+                <div className="col-md-6">
                   <label className="form-label text-muted small fw-bold">Contact Number</label>
                   <input className="form-control bg-light border-0" placeholder="e.g. +91 9876543210" value={studentInfo.contact} onChange={e => setStudentInfo({...studentInfo, contact: e.target.value})} />
+                </div>
+                <div className="col-md-6">
+                  <label className="form-label text-muted small fw-bold">Email Address *</label>
+                  <input type="email" className="form-control bg-light border-0" placeholder="student@example.com" required value={studentInfo.email} onChange={e => setStudentInfo({...studentInfo, email: e.target.value})} />
                 </div>
               </div>
               <button
                 className="btn btn-primary w-100 py-3 mt-4 fw-bold rounded-3"
                 onClick={() => {
-                  if (!studentInfo.name.trim() || !studentInfo.roll_number.trim() || !studentInfo.course.trim()) {
-                    setError('Name, Roll Number, and Course are required!');
+                  if (!studentInfo.name.trim() || !studentInfo.roll_number.trim() || !studentInfo.course.trim() || !studentInfo.email.trim()) {
+                    setError('Name, Roll Number, Course, and Email are required!');
                     return;
                   }
                   setError('');
