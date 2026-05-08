@@ -392,7 +392,8 @@ async def recognize_live_frame(
     
     return {
         "match": False,
-        "message": "Student not recognized."
+        "score": float(score),
+        "message": f"Student not recognized (Score: {score:.2f})"
     }
 
 

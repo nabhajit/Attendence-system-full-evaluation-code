@@ -91,7 +91,7 @@ MIN_FACE_PX        = 30     # minimum bounding-box side length to attempt recogn
 UPSCALE_TARGET     = 160    # pixels — faces smaller than this will be upscaled
 
 # Recognition
-SIMILARITY_THRESHOLD = 0.55  # slightly lower for upscaled faces
+SIMILARITY_THRESHOLD = 0.45  # More lenient for webcams and glasses
 
 # Attendance
 COOLDOWN_SECONDS   = 300     # 5 minutes between re-logging same person
