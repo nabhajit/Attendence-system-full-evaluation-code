@@ -63,19 +63,15 @@ def _send_reset_email(to_email: str, token: str) -> bool:
     import json
 
     resend_api_key = os.getenv("RESEND_API_KEY") or os.getenv("RESEND_API")
-    from_email = "onboarding@resend.dev"  # Required for Resend trial accounts without custom domains
-    frontend_url = os.getenv("FRONTEND_URL", "http://localhost:5173")
+    # Resend trial accounts require sending from onboarding@resend.dev
+    from_email = "onboarding@resend.dev" 
+    frontend_url = os.getenv("FRONTEND_URL", "http://localhost:5173").rstrip("/")
 
     if not resend_api_key:
         print("🚨 RESEND_API_KEY missing — will return link directly.")
         return False
 
     reset_link = f"{frontend_url}/reset-password?token={token}"
-
-    msg = MIMEMultipart("alternative")
-    msg["Subject"] = "🔐 Password Reset — Smart Attendance System"
-    msg["From"] = smtp_email
-    msg["To"] = to_email
 
     html_body = f"""
     <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 520px; margin: 0 auto; padding: 32px; background: #f8fafc; border-radius: 16px;">
@@ -117,20 +113,24 @@ def _send_reset_email(to_email: str, token: str) -> bool:
     req = urllib.request.Request(
         "https://api.resend.com/emails",
         data=payload,
-        headers={"Authorization": f"Bearer {resend_api_key}", "Content-Type": "application/json"},
+        headers={
+            "Authorization": f"Bearer {resend_api_key}",
+            "Content-Type": "application/json"
+        },
         method="POST"
     )
 
     try:
         with urllib.request.urlopen(req, timeout=10) as resp:
-            if resp.status in (200, 201):
+            if resp.status in (200, 201, 202, 204):
                 print(f"✅ Password reset email sent to {to_email} via Resend")
                 return True
-            print(f"❌ Resend API returned: {resp.status}")
+            print(f"❌ Resend API returned status: {resp.status}")
             return False
     except Exception as e:
         print(f"❌ Failed to send email via Resend: {e}")
         return False
+
 
 
 @router.post("/forgot-password")
