@@ -62,7 +62,7 @@ def _send_reset_email(to_email: str, token: str) -> bool:
     import urllib.request
     import json
 
-    resend_api_key = os.getenv("RESEND_API_KEY")
+    resend_api_key = os.getenv("RESEND_API_KEY") or os.getenv("RESEND_API")
     from_email = os.getenv("SMTP_EMAIL", "onboarding@resend.dev")
     frontend_url = os.getenv("FRONTEND_URL", "http://localhost:5173")
 
