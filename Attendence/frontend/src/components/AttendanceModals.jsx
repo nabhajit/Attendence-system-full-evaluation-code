@@ -167,7 +167,7 @@ export const LiveScannerModal = ({ show, onClose }) => {
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-content p-4" style={{ maxWidth: '800px' }} onClick={e => e.stopPropagation()}>
         <div className="d-flex justify-content-between mb-4">
-          <h4 className="fw-bold mb-0">Live Attendance Scan</h4>
+          <h4 className="fw-bold mb-0">Live Attendance Scan <span className="badge bg-secondary" style={{fontSize: '0.6rem'}}>v2.0</span></h4>
           <button className="btn-close" onClick={onClose}></button>
         </div>
 
@@ -176,8 +176,9 @@ export const LiveScannerModal = ({ show, onClose }) => {
             <div className="webcam-container bg-dark rounded-4 overflow-hidden position-relative mb-3" style={{ aspectRatio: '4/3' }}>
               <video ref={videoRef} autoPlay playsInline muted className="w-100 h-100 object-fit-cover" />
               <canvas ref={canvasRef} className="d-none" />
-              <div className="position-absolute bottom-0 start-0 end-0 p-3 bg-dark bg-opacity-50 text-white text-center">
-                <small className="fw-bold">{status}</small>
+              <div className="position-absolute bottom-0 start-0 end-0 p-3 bg-dark bg-opacity-75 text-white text-center">
+                <div className="small fw-bold">{status}</div>
+                {cameraError && <div className="text-danger small mt-1">{cameraError}</div>}
               </div>
             </div>
           </div>
