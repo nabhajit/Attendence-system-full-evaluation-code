@@ -57,22 +57,10 @@ def login(user: UserLogin):
 # Forgot Password / Reset Password
 # ─────────────────────────────────────────────────────────
 
-def _send_reset_email(to_email: str, token: str) -> bool:
+def _send_reset_email(to_email: str, token: str) -> tuple[bool, str]:
     """
     Send a password reset email. 
-    Tries Brevo API (recommended), then Resend, then Gmail SMTP fallback.
-    """
-    import urllib.request
-    import json
-    import smtplib
-    from email.mime.text import MIMEText
-    from email.mime.multipart import MIMEMultipart
-
-    # Load configuration
-def _send_reset_email(to_email: str, token: str) -> bool:
-    """
-    Send a password reset email. 
-    Tries Brevo API (recommended), then Resend, then Gmail SMTP fallback.
+    Returns (Success: bool, ErrorMessage: str)
     """
     import urllib.request
     import json
@@ -169,9 +157,10 @@ def _send_reset_email(to_email: str, token: str) -> bool:
     </html>
     """
 
+    errors = []
+
     # --- METHOD 1: BREVO API (Recommended) ---
     if brevo_api_key:
-        print(f"Trying Brevo API with key: {brevo_api_key[:10]}...")
         payload = json.dumps({
             "sender": {"name": "Smart Attendance", "email": smtp_email},
             "to": [{"email": to_email}],
@@ -192,15 +181,13 @@ def _send_reset_email(to_email: str, token: str) -> bool:
         try:
             with urllib.request.urlopen(req, timeout=10) as resp:
                 if resp.status in (200, 201, 202):
-                    print(f"✅ Success: Email sent via Brevo to {to_email}")
-                    return True
-                print(f"⚠️ Brevo returned status: {resp.status}")
+                    return True, ""
+                errors.append(f"Brevo API error: {resp.status}")
         except Exception as e:
-            print(f"❌ Brevo API failed: {e}")
+            errors.append(f"Brevo API failed: {e}")
 
     # --- METHOD 2: RESEND API ---
     if resend_api_key:
-        print(f"Trying Resend for: {to_email}")
         payload = json.dumps({
             "from": "onboarding@resend.dev",
             "to": [to_email],
@@ -220,14 +207,13 @@ def _send_reset_email(to_email: str, token: str) -> bool:
         try:
             with urllib.request.urlopen(req, timeout=10) as resp:
                 if resp.status in (200, 201, 202, 204):
-                    print(f"✅ Success: Email sent via Resend to {to_email}")
-                    return True
+                    return True, ""
+                errors.append(f"Resend error: {resp.status}")
         except Exception as e:
-            print(f"❌ Resend failed: {e}")
+            errors.append(f"Resend failed: {e}")
 
     # --- METHOD 3: SMTP FALLBACK ---
     if smtp_email and smtp_password:
-        print(f"Trying SMTP fallback for: {to_email}")
         try:
             msg = MIMEMultipart()
             msg["Subject"] = "🔐 Password Reset — Smart Attendance System"
@@ -239,16 +225,12 @@ def _send_reset_email(to_email: str, token: str) -> bool:
                 server.starttls()
                 server.login(smtp_email, smtp_password)
                 server.send_message(msg)
-                print(f"✅ Success: Email sent via SMTP to {to_email}")
-                return True
+                return True, ""
         except Exception as e:
-            print(f"❌ SMTP fallback failed: {e}")
+            errors.append(f"SMTP fallback failed: {e}")
 
-    return False
-
-
-
-
+    combined_error = " | ".join(errors) if errors else "No email providers configured or all failed."
+    return False, combined_error
 
 
 @router.post("/forgot-password")
@@ -276,7 +258,7 @@ def forgot_password(request: ForgotPasswordRequest):
     })
 
     # Try to send the email; if network is blocked (e.g. HF Spaces), return link directly
-    email_sent = _send_reset_email(request.email, token)
+    email_sent, error_msg = _send_reset_email(request.email, token)
 
     frontend_url = os.getenv("FRONTEND_URL", "http://localhost:5173")
     reset_link = f"{frontend_url}/reset-password?token={token}"
@@ -284,9 +266,9 @@ def forgot_password(request: ForgotPasswordRequest):
     if email_sent:
         return {"message": "A reset link has been sent to your email. Please check your inbox."}
     else:
-        # Fallback: return the link directly so the user can still reset
+        # Fallback: return the link and the specific error so the user can debug
         return {
-            "message": "Email could not be sent automatically. Please use the link below to reset your password:",
+            "message": f"Email error: {error_msg}. Please use the link below to reset your password:",
             "reset_link": reset_link
         }
 
